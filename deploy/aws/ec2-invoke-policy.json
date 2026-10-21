@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "AllowGatewayToInvokeTranscriptionLambda",
+      "Effect": "Allow",
+      "Action": "lambda:InvokeFunction",
+      "Resource": "arn:aws:lambda:ap-south-1:458781646520:function:edumesh-transcribe"
+    },
+    {
+      "Sid": "AllowPodsToReadEduMeshSecretsOnly",
+      "Effect": "Allow",
+      "Action": "ssm:GetParameters",
+      "Resource": "arn:aws:ssm:ap-south-1:458781646520:parameter/edumesh/*"
+    }
+  ]
+}

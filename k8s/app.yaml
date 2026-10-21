@@ -1,0 +1,185 @@
+# One easy Kubernetes file for the whole project. IMAGE_URI is replaced with the ECR image address during deployment.
+# A namespace is like a folder that keeps all EduMesh Kubernetes resources together.
+apiVersion: v1
+kind: Namespace
+metadata: {name: edumesh}
+# Shared non-secret settings. Keys are fetched safely from AWS Parameter Store, not placed here.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata: {name: edumesh-config, namespace: edumesh}
+data:
+  ML_URL: http://ml:8000
+  DBMS_URL: http://dbms:8000
+  CLOUD_URL: http://cloud:8000
+  ANSWER_MODE: groq
+  MODEL_NAME: openai/gpt-oss-20b
+  AWS_REGION: ap-south-1
+  TRANSCRIBE_LAMBDA_FUNCTION: edumesh-transcribe
+  GROQ_API_KEY_PARAMETER: /edumesh/groq-api-key
+  DEEPGRAM_API_KEY_PARAMETER: /edumesh/deepgram-api-key
+# Every pod uses this account and the ECR secret to download the private container image.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata: {name: edumesh-runtime, namespace: edumesh}
+imagePullSecrets: [{name: ecr-regcred}]
+# Gateway pod: the only service exposed to the browser through Traefik.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: gateway, namespace: edumesh}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: gateway}}
+  template:
+    metadata: {labels: {app: gateway}}
+    spec:
+      serviceAccountName: edumesh-runtime
+      containers:
+        - name: gateway
+          image: IMAGE_URI
+          command: ["python", "-m", "uvicorn", "gateway:app", "--host", "0.0.0.0", "--port", "8000"]
+          ports: [{containerPort: 8000}]
+          envFrom: [{configMapRef: {name: edumesh-config}}]
+          resources: {requests: {cpu: 50m, memory: 128Mi}, limits: {cpu: 250m, memory: 256Mi}}
+          livenessProbe: {httpGet: {path: /live, port: 8000}}
+# ML pod: one independent copy of service.py with SUBJECT set to ML.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: ml, namespace: edumesh}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: ml}}
+  template:
+    metadata: {labels: {app: ml}}
+    spec:
+      serviceAccountName: edumesh-runtime
+      containers:
+        - name: ml
+          image: IMAGE_URI
+          command: ["python", "-m", "uvicorn", "service:app", "--host", "0.0.0.0", "--port", "8000"]
+          env: [{name: SUBJECT, value: ML}]
+          envFrom: [{configMapRef: {name: edumesh-config}}]
+          ports: [{containerPort: 8000}]
+          resources: {requests: {cpu: 50m, memory: 128Mi}, limits: {cpu: 250m, memory: 256Mi}}
+          livenessProbe: {httpGet: {path: /health, port: 8000}}
+# DBMS pod: one independent copy of service.py with SUBJECT set to DBMS.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: dbms, namespace: edumesh}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: dbms}}
+  template:
+    metadata: {labels: {app: dbms}}
+    spec:
+      serviceAccountName: edumesh-runtime
+      containers:
+        - name: dbms
+          image: IMAGE_URI
+          command: ["python", "-m", "uvicorn", "service:app", "--host", "0.0.0.0", "--port", "8000"]
+          env: [{name: SUBJECT, value: DBMS}]
+          envFrom: [{configMapRef: {name: edumesh-config}}]
+          ports: [{containerPort: 8000}]
+          resources: {requests: {cpu: 50m, memory: 128Mi}, limits: {cpu: 250m, memory: 256Mi}}
+          livenessProbe: {httpGet: {path: /health, port: 8000}}
+# Cloud pod: one independent copy of service.py with SUBJECT set to CLOUD.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: {name: cloud, namespace: edumesh}
+spec:
+  replicas: 1
+  selector: {matchLabels: {app: cloud}}
+  template:
+    metadata: {labels: {app: cloud}}
+    spec:
+      serviceAccountName: edumesh-runtime
+      containers:
+        - name: cloud
+          image: IMAGE_URI
+          command: ["python", "-m", "uvicorn", "service:app", "--host", "0.0.0.0", "--port", "8000"]
+          env: [{name: SUBJECT, value: CLOUD}]
+          envFrom: [{configMapRef: {name: edumesh-config}}]
+          ports: [{containerPort: 8000}]
+          resources: {requests: {cpu: 50m, memory: 128Mi}, limits: {cpu: 250m, memory: 256Mi}}
+          livenessProbe: {httpGet: {path: /health, port: 8000}}
+# Gateway service gives Traefik a stable internal name for the public application.
+---
+apiVersion: v1
+kind: Service
+metadata: {name: gateway, namespace: edumesh}
+spec: {selector: {app: gateway}, ports: [{port: 80, targetPort: 8000}]}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: {name: ml, namespace: edumesh}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: ml}
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: {name: dbms, namespace: edumesh}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: dbms}
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata: {name: cloud, namespace: edumesh}
+spec:
+  scaleTargetRef: {apiVersion: apps/v1, kind: Deployment, name: cloud}
+  minReplicas: 1
+  maxReplicas: 2
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: {type: Utilization, averageUtilization: 70}
+# Internal service for the ML pod; it is not directly public.
+---
+apiVersion: v1
+kind: Service
+metadata: {name: ml, namespace: edumesh}
+spec: {selector: {app: ml}, ports: [{port: 8000, targetPort: 8000}]}
+# Internal service for the DBMS pod; it is not directly public.
+---
+apiVersion: v1
+kind: Service
+metadata: {name: dbms, namespace: edumesh}
+spec: {selector: {app: dbms}, ports: [{port: 8000, targetPort: 8000}]}
+# Internal service for the Cloud pod; it is not directly public.
+---
+apiVersion: v1
+kind: Service
+metadata: {name: cloud, namespace: edumesh}
+spec: {selector: {app: cloud}, ports: [{port: 8000, targetPort: 8000}]}
+# Traefik Ingress receives public HTTP traffic and sends it only to the gateway service.
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata: {name: edumesh, namespace: edumesh}
+spec:
+  ingressClassName: traefik
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend: {service: {name: gateway, port: {number: 80}}}

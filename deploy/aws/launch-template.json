@@ -1,0 +1,25 @@
+{
+  "ImageId": "ami-08e3b3155fc937a94",
+  "InstanceType": "t3.small",
+  "IamInstanceProfile": {"Name": "edumesh-ec2-profile"},
+  "MetadataOptions": {
+    "HttpTokens": "required",
+    "HttpEndpoint": "enabled",
+    "HttpPutResponseHopLimit": 2
+  },
+  "BlockDeviceMappings": [{
+    "DeviceName": "/dev/xvda",
+    "Ebs": {
+      "DeleteOnTermination": true,
+      "Encrypted": true,
+      "VolumeSize": 12,
+      "VolumeType": "gp3"
+    }
+  }],
+  "SecurityGroupIds": ["SECURITY_GROUP_ID"],
+  "UserData": "USER_DATA_BASE64",
+  "TagSpecifications": [
+    {"ResourceType": "instance", "Tags": [{"Key": "Name", "Value": "edumesh-k3s"}, {"Key": "project", "Value": "edumesh"}]},
+    {"ResourceType": "volume", "Tags": [{"Key": "project", "Value": "edumesh"}]}
+  ]
+}

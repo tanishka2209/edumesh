@@ -1,0 +1,11 @@
+# Keep API keys and local generated files out of Docker images.
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.log
+.git/
+.DS_Store
+k8s/*.secret.yaml
+k8s/secret.yaml

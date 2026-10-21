@@ -1,0 +1,10 @@
+# Never upload real API keys or generated local files to GitHub.
+.env
+.env.*
+!.env.example
+__pycache__/
+*.py[cod]
+*.log
+.DS_Store
+k8s/secret.yaml
+k8s/*.secret.yaml

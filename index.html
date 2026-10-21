@@ -1,0 +1,1033 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduMesh - Distributed Academic Query System</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
+    <style>
+        /* Base / Reset styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            background-color: #0f1419;
+            color: #e2e8f0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            min-height: 100vh;
+            padding: 60px 20px;
+        }
+        .container {
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Typography */
+        header {
+            text-align: center;
+            margin-bottom: 35px;
+            width: 100%;
+        }
+        h1 {
+            font-size: 36px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            margin-bottom: 6px;
+            color: #e2e8f0;
+        }
+        .subtitle {
+            font-size: 13px;
+            color: #7d8b9e;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+
+        /* Input section */
+        .input-row {
+            width: 100%;
+            display: flex;
+            gap: 15px;
+            margin-bottom: 45px;
+        }
+        input[type="text"] {
+            flex: 1;
+            background-color: #1a2029;
+            border: 1px solid #2a3441;
+            border-radius: 10px;
+            padding: 16px 20px;
+            color: #e2e8f0;
+            font-size: 16px;
+            outline: none;
+            transition: border-color 200ms ease;
+        }
+        input[type="text"]:focus {
+            border-color: #4ade80;
+        }
+        input[type="text"]:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        button {
+            background-color: #4ade80;
+            color: #0f1419;
+            border: none;
+            border-radius: 10px;
+            padding: 0 30px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 200ms ease, background-color 200ms ease, color 200ms ease;
+            outline: none;
+        }
+        button:hover:not(:disabled) {
+            opacity: 0.9;
+        }
+        button:disabled {
+            background-color: #2a3441;
+            color: #7d8b9e;
+            cursor: not-allowed;
+            opacity: 0.8;
+        }
+
+        /* Gateway box */
+        .gateway-box {
+            background-color: #1a2029;
+            border: 1px solid #2a3441;
+            border-radius: 10px;
+            width: 180px;
+            padding: 16px 20px;
+            text-align: center;
+            z-index: 5;
+            transition: border-color 300ms ease;
+        }
+        .gateway-title {
+            font-size: 15px;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        .port-number {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 12px;
+            color: #7d8b9e;
+            margin-top: 3px;
+        }
+
+        /* Connector Areas and SVG */
+        .connector-area-1 {
+            width: 100%;
+            height: 90px;
+            position: relative;
+        }
+        .connector-area-2 {
+            width: 100%;
+            height: 70px;
+            position: relative;
+        }
+        svg {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+        }
+        .bg-path {
+            stroke: #2a3441;
+            stroke-width: 2;
+            fill: none;
+        }
+        .pulse-path {
+            stroke: #4ade80;
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+        }
+        #winner-line {
+            stroke: #4ade80;
+            stroke-width: 2;
+            fill: none;
+            opacity: 0;
+        }
+
+        /* Services grid */
+        .services-row {
+            width: 100%;
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 30px;
+            z-index: 5;
+        }
+        .service-box {
+            background-color: #1a2029;
+            border: 1px solid #2a3441;
+            border-radius: 10px;
+            padding: 22px 16px;
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: border-color 300ms ease, box-shadow 300ms ease, transform 300ms ease, opacity 300ms ease, filter 300ms ease;
+            position: relative;
+        }
+        .service-name {
+            font-size: 15px;
+            font-weight: 600;
+            color: #e2e8f0;
+        }
+        .score-display {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 48px;
+            font-weight: 700;
+            margin: 14px 0;
+            color: #e2e8f0;
+            line-height: 1;
+        }
+        .chips-area {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+            justify-content: center;
+            width: 100%;
+            min-height: 24px;
+        }
+        .chip {
+            font-size: 11px;
+            padding: 3px 8px;
+            border-radius: 100px;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+        .chip.tier1 {
+            background-color: #4ade80;
+            color: #0f1419;
+        }
+        .chip.default-tier {
+            background-color: #2a3441;
+            color: #e2e8f0;
+        }
+
+        /* Winner / Loser / Waiting Class animations */
+        .service-box.winner {
+            border-color: #4ade80;
+            box-shadow: 0 0 15px rgba(74, 222, 128, 0.4);
+            transform: scale(1.03);
+            z-index: 6;
+        }
+        .service-box.loser {
+            opacity: 0.4;
+            filter: grayscale(80%);
+        }
+        @keyframes pulse-glow {
+            0% {
+                border-color: #2a3441;
+                box-shadow: 0 0 0px rgba(74, 222, 128, 0);
+            }
+            100% {
+                border-color: #4ade80;
+                box-shadow: 0 0 12px rgba(74, 222, 128, 0.35);
+            }
+        }
+        .service-box.waiting {
+            animation: pulse-glow 1.5s infinite alternate;
+        }
+
+        /* Message container */
+        .message-container {
+            width: 100%;
+            text-align: center;
+            margin-top: 25px;
+            min-height: 24px;
+        }
+        .not-confident-text {
+            color: #7d8b9e;
+            font-size: 14px;
+            font-weight: 550;
+        }
+
+        /* Answer Section */
+        .answer-panel {
+            width: 100%;
+            background-color: #1a2029;
+            border: 1px solid #2a3441;
+            border-radius: 10px;
+            padding: 26px;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: opacity 250ms ease-out, transform 250ms ease-out;
+            visibility: hidden;
+            height: 0;
+            overflow: hidden;
+            margin-top: 0;
+        }
+        .answer-panel.show {
+            opacity: 1;
+            transform: translateY(0);
+            visibility: visible;
+            height: auto;
+            margin-top: 20px;
+        }
+        .answer-caption {
+            font-size: 11px;
+            color: #7d8b9e;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 12px;
+            font-weight: 700;
+        }
+        .answer-content {
+            font-size: 15px;
+            line-height: 1.6;
+            color: #e2e8f0;
+            white-space: pre-wrap;
+        }
+        .code-block {
+            background-color: #0f1419;
+            border: 1px solid #2a3441;
+            border-radius: 6px;
+            padding: 14px 18px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13.5px;
+            color: #4ade80;
+            margin: 12px 0;
+            overflow-x: auto;
+            white-space: pre;
+        }
+        .inline-code {
+            background-color: #0f1419;
+            border: 1px solid #2a3441;
+            border-radius: 4px;
+            padding: 2px 6px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 13px;
+            color: #4ade80;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>EduMesh</h1>
+            <div class="subtitle">Distributed Academic Query System</div>
+        </header>
+
+        <div class="peer-panel" style="background: #1a2029; border: 1px solid #2a3441; border-radius: 10px; padding: 12px 18px; margin-bottom: 25px; width: 100%; display: flex; justify-content: space-between; align-items: center; gap: 15px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: #7d8b9e; font-size: 12px; font-weight: 600; text-transform: uppercase;">Node ID:</span>
+                <strong id="my-peer-id" style="font-family: ui-monospace, SFMono-Regular, monospace; color: #4ade80; font-size: 13px;">generating...</strong>
+            </div>
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <span id="peer-status-badge" style="font-size: 11px; background: #2a3441; color: #7d8b9e; padding: 4px 8px; border-radius: 100px; font-weight: 600;">🔴 Standalone</span>
+                <input type="text" id="peer-conn-id" placeholder="Paste classmate's Node ID..." style="background: #0f1419; border: 1px solid #2a3441; border-radius: 6px; padding: 6px 12px; color: #e2e8f0; font-size: 13px; width: 210px;">
+                <button id="peer-connect-btn" style="padding: 6px 14px; font-size: 13px; border-radius: 6px;">Link Peer</button>
+            </div>
+        </div>
+
+        <div class="input-row">
+            <div style="position: relative; flex: 1; display: flex; align-items: center;">
+                <input type="text" id="question-input" placeholder="Ask a question about ML, DBMS or Cloud Computing..." autocomplete="off" style="padding-right: 56px; width: 100%;">
+                <button id="mic-btn" type="button" title="Click to record voice input" style="position: absolute; right: 10px; background: transparent; border: none; padding: 8px; display: flex; align-items: center; justify-content: center; cursor: pointer; border-radius: 50%; outline: none; transition: all 200ms ease;">
+                    <svg id="mic-svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#7d8b9e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"></path>
+                        <path d="M19 10v2a7 7 0 0 1-14 0v-2"></path>
+                        <line x1="12" y1="19" x2="12" y2="22"></line>
+                    </svg>
+                </button>
+            </div>
+            <button id="send-button">Send</button>
+        </div>
+
+        <div id="gateway-box" class="gateway-box">
+            <div class="gateway-title">Gateway</div>
+            <div class="port-number">:5000</div>
+        </div>
+
+        <div class="connector-area-1">
+            <svg id="connector-svg-1">
+                <path id="line-ml-bg" class="bg-path" />
+                <path id="line-ml-pulse" class="pulse-path" />
+
+                <path id="line-dbms-bg" class="bg-path" />
+                <path id="line-dbms-pulse" class="pulse-path" />
+
+                <path id="line-cloud-bg" class="bg-path" />
+                <path id="line-cloud-pulse" class="pulse-path" />
+            </svg>
+        </div>
+
+        <div class="services-row">
+            <div id="ml-box" class="service-box" data-service="ML">
+                <div class="service-name">ML Service</div>
+                <div class="port-number">:5001</div>
+                <div id="ml-score" class="score-display">—</div>
+                <div id="ml-chips" class="chips-area"></div>
+            </div>
+
+            <div id="dbms-box" class="service-box" data-service="DBMS">
+                <div class="service-name">DBMS Service</div>
+                <div class="port-number">:5002</div>
+                <div id="dbms-score" class="score-display">—</div>
+                <div id="dbms-chips" class="chips-area"></div>
+            </div>
+
+            <div id="cloud-box" class="service-box" data-service="CLOUD">
+                <div class="service-name">Cloud Service</div>
+                <div class="port-number">:5003</div>
+                <div id="cloud-score" class="score-display">—</div>
+                <div id="cloud-chips" class="chips-area"></div>
+            </div>
+        </div>
+
+        <div class="connector-area-2">
+            <svg id="connector-svg-2">
+                <path id="winner-line" />
+            </svg>
+        </div>
+
+        <div id="message-container" class="message-container"></div>
+
+        <div id="answer-panel" class="answer-panel">
+            <div id="answer-caption" class="answer-caption"></div>
+            <div id="answer-content" class="answer-content"></div>
+        </div>
+    </div>
+
+    <script>
+        const questionInput = document.getElementById("question-input");
+        const sendButton = document.getElementById("send-button");
+        const mlBox = document.getElementById("ml-box");
+        const dbmsBox = document.getElementById("dbms-box");
+        const cloudBox = document.getElementById("cloud-box");
+
+        const mlScore = document.getElementById("ml-score");
+        const dbmsScore = document.getElementById("dbms-score");
+        const cloudScore = document.getElementById("cloud-score");
+
+        const mlChips = document.getElementById("ml-chips");
+        const dbmsChips = document.getElementById("dbms-chips");
+        const cloudChips = document.getElementById("cloud-chips");
+
+        const messageContainer = document.getElementById("message-container");
+        const answerPanel = document.getElementById("answer-panel");
+        const answerCaption = document.getElementById("answer-caption");
+        const answerContent = document.getElementById("answer-content");
+        const winnerLine = document.getElementById("winner-line");
+
+        let winner = null;
+        let winnerBid = null;
+        let queryId = null;
+
+        // --- WebRTC P2P DataChannel & Speech-To-Text Setup ---
+        let peer = null;
+        let activeConn = null;
+        const localCache = {}; // Key: normalized question -> { answer, display_name }
+        let mediaRecorder = null;
+        let audioChunks = [];
+
+        const myPeerIdElem = document.getElementById("my-peer-id");
+        const initialNodeId = 'node-' + Math.random().toString(36).substring(2, 8);
+        if (myPeerIdElem) myPeerIdElem.textContent = initialNodeId;
+
+        // Safely check if PeerJS library was loaded from CDN
+        if (typeof Peer !== 'undefined') {
+            try {
+                peer = new Peer(initialNodeId);
+                peer.on('open', (id) => {
+                    if (myPeerIdElem) myPeerIdElem.textContent = id;
+                });
+
+                peer.on('connection', (conn) => {
+                    activeConn = conn;
+                    setupPeerConnection(conn);
+                });
+
+                peer.on('error', (err) => {
+                    console.warn("PeerJS network notice:", err);
+                });
+            } catch(e) {
+                console.warn("PeerJS initialization exception:", e);
+            }
+        } else {
+            console.warn("PeerJS library not loaded. Running in Standalone Mode.");
+        }
+
+        const peerConnBtn = document.getElementById("peer-connect-btn");
+        if (peerConnBtn) {
+            peerConnBtn.addEventListener("click", () => {
+                const targetIdInput = document.getElementById("peer-conn-id");
+                const targetId = targetIdInput ? targetIdInput.value.trim() : "";
+                if (targetId && peer) {
+                    const conn = peer.connect(targetId);
+                    activeConn = conn;
+                    setupPeerConnection(conn);
+                } else if (!peer) {
+                    alert("P2P Signaling library offline. Operating in Standalone Mode.");
+                }
+            });
+        }
+
+        // Attach open/message/close handlers to one optional browser-to-browser cache connection.
+        function setupPeerConnection(conn) {
+            conn.on('open', () => {
+                const badge = document.getElementById("peer-status-badge");
+                if (badge) {
+                    badge.style.background = "#14532d";
+                    badge.style.color = "#4ade80";
+                    badge.textContent = "🟢 P2P Linked";
+                }
+            });
+
+            conn.on('data', (data) => {
+                if (data.type === "QUERY_LOOKUP") {
+                    const key = (data.question || "").toLowerCase().trim();
+                    const cached = localCache[key];
+                    if (cached) {
+                        conn.send({
+                            type: "QUERY_RESPONSE",
+                            question: data.question,
+                            answer: cached.answer,
+                            display_name: cached.display_name
+                        });
+                    }
+                } else if (data.type === "QUERY_RESPONSE") {
+                    answerCaption.textContent = `Answered via WebRTC P2P DataChannel (${data.display_name})`;
+                    answerContent.innerHTML = formatAnswer(data.answer);
+                    answerPanel.classList.add("show");
+                    questionInput.disabled = false;
+                    sendButton.disabled = false;
+                }
+            });
+        }
+
+        // Voice Input via Microphone -> Groq Whisper REST API
+        const micBtn = document.getElementById("mic-btn");
+        const micSvg = document.getElementById("mic-svg");
+        let micRecording = false;
+        let micStream = null;
+
+        if (micBtn) {
+            micBtn.addEventListener("click", async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                if (micRecording) {
+                    if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+                        mediaRecorder.stop();
+                    }
+                    return;
+                }
+
+                try {
+                    micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    mediaRecorder = new MediaRecorder(micStream);
+                    audioChunks = [];
+
+                    mediaRecorder.ondataavailable = event => {
+                        if (event.data.size > 0) audioChunks.push(event.data);
+                    };
+
+                    mediaRecorder.onstop = async () => {
+                        micRecording = false;
+                        micBtn.style.backgroundColor = "transparent";
+                        if (micSvg) micSvg.setAttribute("stroke", "#7d8b9e");
+                        messageContainer.innerHTML = '';
+
+                        // Stop all mic tracks to release the hardware mic
+                        if (micStream) {
+                            micStream.getTracks().forEach(t => t.stop());
+                            micStream = null;
+                        }
+
+                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                        const formData = new FormData();
+                        formData.append('file', audioBlob, 'voice_recording.webm');
+
+                        messageContainer.innerHTML = `<div class="not-confident-text">Transcribing...</div>`;
+
+                        try {
+                            const res = await fetch("/ask/transcribe", { method: "POST", body: formData });
+                            const data = await res.json();
+                            if (data.text) {
+                                questionInput.value = data.text;
+                            }
+                        } catch(err) {
+                            console.error("Transcription error:", err);
+                        }
+                        messageContainer.innerHTML = '';
+                    };
+
+                    mediaRecorder.start();
+                    micRecording = true;
+                    micBtn.style.backgroundColor = "rgba(239, 68, 68, 0.2)";
+                    if (micSvg) micSvg.setAttribute("stroke", "#ef4444");
+                    messageContainer.innerHTML = `<div class="not-confident-text" style="color:#ef4444;">🎙️ Recording... Click mic to stop.</div>`;
+                } catch(err) {
+                    console.error("Microphone access failed:", err);
+                    alert("Microphone access denied or not supported in browser.");
+                }
+            });
+        }
+
+        // Form Submission
+        sendButton.addEventListener("click", onSubmit);
+        questionInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") onSubmit();
+        });
+
+        // Responsive lines alignment
+        window.addEventListener("load", () => {
+            updateLines();
+            setTimeout(updateLines, 100);
+        });
+        window.addEventListener("resize", updateLines);
+
+        // Main send-button action: try browser cache, then peer cache, then the backend gateway.
+        function onSubmit() {
+            const question = questionInput.value.trim();
+            if (!question) return;
+            const normKey = question.toLowerCase().trim();
+
+            // t=0: Disable inputs, reset layout parameters
+            questionInput.disabled = true;
+            sendButton.disabled = true;
+
+            mlScore.textContent = "—";
+            dbmsScore.textContent = "—";
+            cloudScore.textContent = "—";
+            mlChips.innerHTML = "";
+            dbmsChips.innerHTML = "";
+            cloudChips.innerHTML = "";
+
+            [mlBox, dbmsBox, cloudBox].forEach(box => {
+                box.className = "service-box";
+            });
+
+            messageContainer.innerHTML = "";
+            answerPanel.classList.remove("show");
+            winnerLine.style.opacity = "0";
+
+            resetPulse("line-ml-pulse");
+            resetPulse("line-dbms-pulse");
+            resetPulse("line-cloud-pulse");
+
+            winner = null;
+            winnerBid = null;
+            queryId = null;
+
+            // 1. Check local browser cache
+            if (localCache[normKey]) {
+                const cached = localCache[normKey];
+                answerCaption.textContent = `Answered via Local Cache (${cached.display_name})`;
+                answerContent.innerHTML = formatAnswer(cached.answer);
+                answerPanel.classList.add("show");
+                questionInput.disabled = false;
+                sendButton.disabled = false;
+                return;
+            }
+
+            // 2. Check WebRTC P2P DataChannel Peer
+            if (activeConn && activeConn.open) {
+                messageContainer.innerHTML = `<div class="not-confident-text">Querying peer node via WebRTC DataChannel...</div>`;
+                activeConn.send({ type: "QUERY_LOOKUP", question: question });
+                
+                setTimeout(() => {
+                    if (!answerPanel.classList.contains("show")) {
+                        messageContainer.innerHTML = "";
+                        executeGatewayBidding(question);
+                    }
+                }, 400);
+                return;
+            }
+
+            executeGatewayBidding(question);
+        }
+
+        // Ask the gateway to collect scores from ML, DBMS, and Cloud services.
+        function executeGatewayBidding(question) {
+            const startTime = Date.now();
+
+            // Fire bids POST
+            fetch("/ask/bids", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ question: question })
+            })
+            .then(res => res.json())
+            .then(data => {
+                const elapsed = Date.now() - startTime;
+                const delay = Math.max(0, 350 - elapsed);
+                
+                setTimeout(() => {
+                    runBiddingSequence(data, question);
+                }, delay);
+            })
+            .catch(err => {
+                console.error("Bids request failed:", err);
+                questionInput.disabled = false;
+                sendButton.disabled = false;
+            });
+        }
+
+        // Hide one animated SVG connector line before a new question starts.
+        function resetPulse(id) {
+            const line = document.getElementById(id);
+            if (line) {
+                line.style.transition = "none";
+                line.style.strokeDashoffset = "30";
+            }
+        }
+
+        // Animate subject scores, highlight the winner, and then request its streamed answer.
+        function runBiddingSequence(bidsData, question) {
+            queryId = bidsData.query_id;
+            const bidsMap = {};
+            bidsData.bids.forEach(b => {
+                bidsMap[b.service] = b;
+            });
+
+            // t=0 of sequence: Staggered traveling pulses along SVG lines
+            const mlLen = getLineLength("line-ml-pulse");
+            const dbmsLen = getLineLength("line-dbms-pulse");
+            const cloudLen = getLineLength("line-cloud-pulse");
+
+            triggerPulse("line-ml-pulse", mlLen);
+            
+            setTimeout(() => {
+                triggerPulse("line-dbms-pulse", dbmsLen);
+            }, 120);
+
+            setTimeout(() => {
+                triggerPulse("line-cloud-pulse", cloudLen);
+            }, 240);
+
+            // t=550: score counting up and chips rendering
+            setTimeout(() => {
+                animateScore(mlScore, bidsMap["ML"]?.score || 0, 500);
+                animateScore(dbmsScore, bidsMap["DBMS"]?.score || 0, 500);
+                animateScore(cloudScore, bidsMap["CLOUD"]?.score || 0, 500);
+
+                renderChips(mlChips, bidsMap["ML"]?.matched || {});
+                renderChips(dbmsChips, bidsMap["DBMS"]?.matched || {});
+                renderChips(cloudChips, bidsMap["CLOUD"]?.matched || {});
+            }, 550);
+
+            // t=1150: evaluate confidence and add winner/loser classes
+            setTimeout(() => {
+                if (bidsData.confident) {
+                    winner = bidsData.winner;
+                    winnerBid = bidsMap[winner];
+                    
+                    [mlBox, dbmsBox, cloudBox].forEach(box => {
+                        const sid = box.dataset.service;
+                        if (sid === winner) {
+                            box.classList.add("winner");
+                        } else {
+                            box.classList.add("loser");
+                        }
+                    });
+                    
+                    // Re-align lines with scaled elements
+                    updateLines();
+                } else {
+                    const highestScore = bidsData.bids.length > 0 ? bidsData.bids[0].score : 0;
+                    messageContainer.innerHTML = `<div class="not-confident-text">No service is confident enough to answer this (highest score ${highestScore}, threshold 30).</div>`;
+                    
+                    questionInput.disabled = false;
+                    sendButton.disabled = false;
+                }
+            }, 1150);
+
+            // t=1450: Winner connector line and fire Streaming POST /ask/answer_stream
+            setTimeout(async () => {
+                if (!winner) return;
+
+                const winnerBox = document.getElementById(`${winner.toLowerCase()}-box`);
+                winnerBox.classList.add("waiting");
+
+                // Draw connector line over 350ms
+                winnerLine.style.opacity = "1";
+                const winnerLineLen = getLineLength("winner-line");
+                winnerLine.style.strokeDasharray = `${winnerLineLen}`;
+                winnerLine.style.transition = "none";
+                winnerLine.style.strokeDashoffset = `${winnerLineLen}`;
+                
+                winnerLine.getBoundingClientRect(); // force reflow
+                
+                winnerLine.style.transition = "stroke-dashoffset 350ms linear";
+                winnerLine.style.strokeDashoffset = "0";
+
+                // Evaluate matched topic
+                const matched = winnerBid.matched || {};
+                let matchedTopic = "general";
+                if (matched.tier1 && matched.tier1.length > 0) {
+                    matchedTopic = matched.tier1[0];
+                } else if (matched.tier2 && matched.tier2.length > 0) {
+                    matchedTopic = matched.tier2[0];
+                }
+
+                answerCaption.textContent = `Answered by ${winnerBid.display_name || (winner + ' Service')} (Live Token Stream)`;
+                answerContent.innerHTML = "<em>Streaming tokens...</em>";
+                answerPanel.classList.add("show");
+
+                try {
+                    const response = await fetch("/ask/answer_stream", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            query_id: queryId,
+                            question: question,
+                            winner: winner,
+                            matched_topic: matchedTopic
+                        })
+                    });
+
+                    winnerBox.classList.remove("waiting");
+
+                    const reader = response.body.getReader();
+                    const decoder = new TextDecoder("utf-8");
+                    let accumulatedText = "";
+
+                    while (true) {
+                        const { done, value } = await reader.read();
+                        if (done) break;
+                        accumulatedText += decoder.decode(value, { stream: true });
+                        answerContent.innerHTML = formatAnswer(accumulatedText);
+                    }
+
+                    if (accumulatedText === "OUT_OF_SCOPE") {
+                        accumulatedText = "That question is outside this service's subject area.";
+                        answerContent.innerHTML = formatAnswer(accumulatedText);
+                    }
+
+                    // Store in local cache for P2P sharing
+                    localCache[question.toLowerCase().trim()] = {
+                        answer: accumulatedText,
+                        display_name: winnerBid.display_name || (winner + ' Service')
+                    };
+                } catch(err) {
+                    console.error("Answer streaming failed:", err);
+                    winnerBox.classList.remove("waiting");
+                    answerContent.innerHTML = `<span style="color: #ef4444;">Error streaming answer from backend service.</span>`;
+                }
+
+                questionInput.disabled = false;
+                sendButton.disabled = false;
+            }, 1450);
+        }
+
+        // SVG lines positions logic
+        // Recalculate SVG connector coordinates after the page layout changes.
+        function updateLines() {
+            const gatewayBox = document.getElementById("gateway-box");
+            const mlBox = document.getElementById("ml-box");
+            const dbmsBox = document.getElementById("dbms-box");
+            const cloudBox = document.getElementById("cloud-box");
+            
+            const svg1 = document.getElementById("connector-svg-1");
+            if (!svg1) return;
+            
+            const svg1Rect = svg1.getBoundingClientRect();
+            const gatewayRect = gatewayBox.getBoundingClientRect();
+            const mlRect = mlBox.getBoundingClientRect();
+            const dbmsRect = dbmsBox.getBoundingClientRect();
+            const cloudRect = cloudBox.getBoundingClientRect();
+            
+            const gX = (gatewayRect.left + gatewayRect.width / 2) - svg1Rect.left;
+            const gY = gatewayRect.bottom - svg1Rect.top;
+            
+            const mlX = (mlRect.left + mlRect.width / 2) - svg1Rect.left;
+            const mlY = mlRect.top - svg1Rect.top;
+            
+            const dbmsX = (dbmsRect.left + dbmsRect.width / 2) - svg1Rect.left;
+            const dbmsY = dbmsRect.top - svg1Rect.top;
+            
+            const cloudX = (cloudRect.left + cloudRect.width / 2) - svg1Rect.left;
+            const cloudY = cloudRect.top - svg1Rect.top;
+            
+            setLineCoords("line-ml-bg", gX, gY, mlX, mlY);
+            setLineCoords("line-ml-pulse", gX, gY, mlX, mlY);
+            
+            setLineCoords("line-dbms-bg", gX, gY, dbmsX, dbmsY);
+            setLineCoords("line-dbms-pulse", gX, gY, dbmsX, dbmsY);
+            
+            setLineCoords("line-cloud-bg", gX, gY, cloudX, cloudY);
+            setLineCoords("line-cloud-pulse", gX, gY, cloudX, cloudY);
+            
+            updateWinnerLine();
+        }
+
+        // Set one SVG line from a start point to an end point.
+        function setLineCoords(id, x1, y1, x2, y2) {
+            const element = document.getElementById(id);
+            if (element) {
+                element.setAttribute("d", `M ${x1},${y1} L ${x2},${y2}`);
+            }
+        }
+
+        // Draw the final connector from the winning subject card to the answer panel.
+        function updateWinnerLine() {
+            const winnerLine = document.getElementById("winner-line");
+            const answerPanel = document.getElementById("answer-panel");
+            const svg2 = document.getElementById("connector-svg-2");
+            if (!winner || !answerPanel || !svg2) {
+                if (winnerLine) winnerLine.style.opacity = "0";
+                return;
+            }
+            
+            const winnerBox = document.getElementById(`${winner.toLowerCase()}-box`);
+            const svg2Rect = svg2.getBoundingClientRect();
+            const winnerRect = winnerBox.getBoundingClientRect();
+            const answerRect = answerPanel.getBoundingClientRect();
+            
+            const startX = (winnerRect.left + winnerRect.width / 2) - svg2Rect.left;
+            const startY = winnerRect.bottom - svg2Rect.top;
+            const endX = (answerRect.left + answerRect.width / 2) - svg2Rect.left;
+            const endY = answerRect.top - svg2Rect.top;
+            
+            winnerLine.setAttribute("d", `M ${startX},${startY} L ${endX},${endY}`);
+        }
+
+        // Measure an SVG line so its moving pulse can travel the correct distance.
+        function getLineLength(id) {
+            const line = document.getElementById(id);
+            if (!line) return 0;
+            try {
+                return line.getTotalLength();
+            } catch(e) {
+                const d = line.getAttribute("d") || "";
+                const matches = d.match(/M\s+([\d\.]+),([\d\.]+)\s+L\s+([\d\.]+),([\d\.]+)/);
+                if (matches) {
+                    const x1 = parseFloat(matches[1]);
+                    const y1 = parseFloat(matches[2]);
+                    const x2 = parseFloat(matches[3]);
+                    const y2 = parseFloat(matches[4]);
+                    return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+                }
+                return 300;
+            }
+        }
+
+        // Start the visible pulse animation on one connection line.
+        function triggerPulse(lineId, length) {
+            const line = document.getElementById(lineId);
+            if (!line) return;
+            
+            line.style.strokeDasharray = `30 ${length}`;
+            line.style.transition = "none";
+            line.style.strokeDashoffset = "30";
+            
+            line.getBoundingClientRect(); // force reflow
+            
+            line.style.transition = "stroke-dashoffset 450ms cubic-bezier(0.4, 0, 0.2, 1)";
+            line.style.strokeDashoffset = `-${length}`;
+        }
+
+        // Score Count Up easeOut
+        // Count a score smoothly from zero to its final value for the bidding animation.
+        function animateScore(element, targetVal, duration) {
+            let startTimestamp = null;
+            function step(timestamp) {
+                if (!startTimestamp) startTimestamp = timestamp;
+                const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                const easeOutProgress = 1 - Math.pow(1 - progress, 2);
+                const currentVal = Math.floor(easeOutProgress * targetVal);
+                element.textContent = currentVal;
+                if (progress < 1) {
+                    window.requestAnimationFrame(step);
+                } else {
+                    element.textContent = targetVal;
+                }
+            }
+            window.requestAnimationFrame(step);
+        }
+
+        // Render matched chips
+        // Show matched keywords as small chips; tier 1 terms get stronger styling.
+        function renderChips(container, matched) {
+            container.innerHTML = "";
+            const t1 = matched.tier1 || [];
+            const t2 = matched.tier2 || [];
+            const t3 = matched.tier3 || [];
+            
+            t1.forEach(term => {
+                const chip = document.createElement("span");
+                chip.className = "chip tier1";
+                chip.textContent = term;
+                container.appendChild(chip);
+            });
+            
+            const secondary = [...t2, ...t3];
+            secondary.forEach(term => {
+                const chip = document.createElement("span");
+                chip.className = "chip default-tier";
+                chip.textContent = term;
+                container.appendChild(chip);
+            });
+        }
+
+        // Convert safe LaTeX from the AI into a textbook-style formula with KaTeX.
+        function renderMath(latex, displayMode) {
+            if (!window.katex) {
+                return displayMode
+                    ? `<div class="math-block">${latex.trim()}</div>`
+                    : `<span class="math-inline">${latex.trim()}</span>`;
+            }
+
+            try {
+                return window.katex.renderToString(latex.trim(), {
+                    displayMode,
+                    throwOnError: false,
+                    strict: "ignore",
+                    trust: false
+                });
+            } catch (_) {
+                return displayMode
+                    ? `<div class="math-block">${latex.trim()}</div>`
+                    : `<span class="math-inline">${latex.trim()}</span>`;
+            }
+        }
+
+        // Escapes answer text, then renders complete LaTeX expressions safely with KaTeX.
+        // Escape AI text first, then add only safe code and math HTML for display.
+        function formatAnswer(text) {
+            // 1. Escape HTML
+            let esc = text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+                
+            let formatted = esc;
+
+            // 2. Render LaTeX block formulas \[ ... \]
+            formatted = formatted.replace(/\\\[([\s\S]*?)\\\]/g, (match, formula) => {
+                return renderMath(formula, true);
+            });
+
+            // 3. Render LaTeX inline formulas \( ... \)
+            formatted = formatted.replace(/\\\(([\s\S]*?)\\\)/g, (match, formula) => {
+                return renderMath(formula, false);
+            });
+
+            // 4. Replace fenced code blocks
+            const codeBlockRegex = /```(?:[a-zA-Z0-9\-]+)?\n([\s\S]*?)\n```/g;
+            formatted = formatted.replace(codeBlockRegex, (match, code) => {
+                return `<pre class="code-block">${code.trim()}</pre>`;
+            });
+            
+            // 5. Replace inline code blocks
+            formatted = formatted.replace(/`([^`\n]+)`/g, '<code class="inline-code">$1</code>');
+            return formatted;
+        }
+    </script>
+</body>
+</html>

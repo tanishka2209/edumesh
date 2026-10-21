@@ -1,0 +1,9 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [{
+    "Sid": "AllowLambdaToReadOnlyEduMeshSecrets",
+    "Effect": "Allow",
+    "Action": "ssm:GetParameters",
+    "Resource": "arn:aws:ssm:ap-south-1:458781646520:parameter/edumesh/*"
+  }]
+}
